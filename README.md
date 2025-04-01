@@ -1,4 +1,4 @@
-# Dungeon Crawler
+# Knight Crawler
 
 A 2D top-down medieval dungeon crawler with roguelike elements, procedurally generated levels, and challenging boss fights.
 
