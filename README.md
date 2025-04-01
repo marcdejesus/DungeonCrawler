@@ -37,4 +37,4 @@ This project is built with Unity 2022.3 LTS (or higher).
 
 ## Credits
 
-Created by [Your Name] 
+Created by Marc De Jesus and Andrew Parr
