@@ -27,6 +27,10 @@ public class PlayerHealth : MonoBehaviour
     private int isDamagedHash;
     private int dieHash;
     
+    // Public properties
+    public int CurrentHealth => currentHealth;
+    public int MaxHealth => maxHealth;
+    
     // Events
     public event Action<int, int> OnHealthChanged; // (currentHealth, maxHealth)
     public event Action OnPlayerDeath;

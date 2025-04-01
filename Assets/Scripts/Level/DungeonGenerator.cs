@@ -312,95 +312,137 @@ public class DungeonGenerator : MonoBehaviour
     /// </summary>
     private void AssignRoomTypes()
     {
-        // Start room is already assigned
-        
-        // Find all dead ends
+        // Find dead ends (rooms with only one connection)
         List<RoomNode> deadEnds = FindDeadEnds();
         
-        // If we have dead ends, assign one as boss room
-        if (deadEnds.Count > 0)
+        if (deadEnds.Count == 0)
         {
-            // Find the farthest dead end from start to place boss
-            RoomNode farthestRoom = deadEnds[0];
-            float maxDistance = Vector2Int.Distance(deadEnds[0].GridPosition, Vector2Int.zero);
-            
-            for (int i = 1; i < deadEnds.Count; i++)
-            {
-                float distance = Vector2Int.Distance(deadEnds[i].GridPosition, Vector2Int.zero);
-                if (distance > maxDistance)
-                {
-                    maxDistance = distance;
-                    farthestRoom = deadEnds[i];
-                }
-            }
-            
-            farthestRoom.Type = RoomType.Boss;
-            deadEnds.Remove(farthestRoom);
+            Debug.LogError("No dead ends found for boss room!");
+            return;
         }
         
-        // Assign other special rooms to remaining dead ends
-        foreach (RoomNode deadEnd in deadEnds)
+        // Pick a random dead end for boss room
+        int bossIndex = UnityEngine.Random.Range(0, deadEnds.Count);
+        deadEnds[bossIndex].Type = RoomType.Boss;
+        
+        // Remove boss room from dead ends list
+        RoomNode bossNode = deadEnds[bossIndex];
+        deadEnds.RemoveAt(bossIndex);
+        
+        // Assign start room
+        RoomNode startNode = roomNodes.Find(room => room.Type == RoomType.Start);
+        
+        // Calculate number of special rooms based on total rooms
+        int totalRooms = roomNodes.Count - 2; // Excluding start and boss
+        
+        // Calculate distribution based on configured chances
+        float totalSpecialChance = eliteRoomChance + shopRoomChance + treasureRoomChance;
+        
+        // Adjust for possibility that chances don't sum to 1
+        float adjustedNormalChance = normalRoomChance;
+        if (totalSpecialChance + normalRoomChance != 1.0f)
         {
-            float random = UnityEngine.Random.value;
-            
-            if (random < treasureRoomChance)
-            {
-                deadEnd.Type = RoomType.Treasure;
-            }
-            else if (random < treasureRoomChance + shopRoomChance)
-            {
-                deadEnd.Type = RoomType.Shop;
-            }
-            else if (random < treasureRoomChance + shopRoomChance + eliteRoomChance)
-            {
-                deadEnd.Type = RoomType.Elite;
-            }
-            // Otherwise leave as normal
+            adjustedNormalChance = 1.0f - totalSpecialChance;
+            Debug.LogWarning($"Room chances don't sum to 1. Adjusting normal room chance to {adjustedNormalChance}");
         }
         
-        // Assign remaining room types
+        // Calculate number of each room type
+        int eliteRooms = Mathf.RoundToInt(totalRooms * (eliteRoomChance / (totalSpecialChance + adjustedNormalChance)));
+        int shopRooms = Mathf.RoundToInt(totalRooms * (shopRoomChance / (totalSpecialChance + adjustedNormalChance)));
+        int treasureRooms = Mathf.RoundToInt(totalRooms * (treasureRoomChance / (totalSpecialChance + adjustedNormalChance)));
+        int normalRooms = totalRooms - (eliteRooms + shopRooms + treasureRooms);
+        
+        // List of rooms to assign (excluding start and boss)
+        List<RoomNode> roomsToAssign = new List<RoomNode>();
         foreach (RoomNode room in roomNodes)
         {
-            if (room.Type == RoomType.Normal) // Only change rooms that are still normal
+            if (room.Type == RoomType.Normal) // Only unassigned rooms (excludes start and boss)
             {
-                float random = UnityEngine.Random.value;
-                
-                if (random < eliteRoomChance)
-                {
-                    room.Type = RoomType.Elite;
-                }
-                else if (random < eliteRoomChance + shopRoomChance)
-                {
-                    room.Type = RoomType.Shop;
-                }
-                // Otherwise leave as normal
+                roomsToAssign.Add(room);
             }
         }
         
-        // Potentially add a secret room
-        if (UnityEngine.Random.value < secretRoomChance && roomNodes.Count > 3)
+        // Shuffle the list
+        ShuffleList(roomsToAssign);
+        
+        // Assign room types
+        int index = 0;
+        
+        // Elite rooms
+        for (int i = 0; i < eliteRooms && index < roomsToAssign.Count; i++)
         {
-            // Find a room that's not a start or boss room
-            List<RoomNode> normalRooms = roomNodes.FindAll(r => r.Type == RoomType.Normal || r.Type == RoomType.Elite);
-            
-            if (normalRooms.Count > 0)
+            roomsToAssign[index].Type = RoomType.Elite;
+            index++;
+        }
+        
+        // Shop rooms - prefer rooms that aren't dead ends
+        int shopsAssigned = 0;
+        foreach (RoomNode room in roomsToAssign)
+        {
+            if (shopsAssigned >= shopRooms || index >= roomsToAssign.Count)
+                break;
+                
+            if (room.Type == RoomType.Normal && room.Connections.Count > 1)
             {
-                RoomNode secretConnection = normalRooms[UnityEngine.Random.Range(0, normalRooms.Count)];
+                room.Type = RoomType.Shop;
+                shopsAssigned++;
+                index++;
+            }
+        }
+        
+        // If we couldn't place all shops in non-dead ends, place remaining in any available rooms
+        while (shopsAssigned < shopRooms && index < roomsToAssign.Count)
+        {
+            if (roomsToAssign[index].Type == RoomType.Normal)
+            {
+                roomsToAssign[index].Type = RoomType.Shop;
+                shopsAssigned++;
+            }
+            index++;
+        }
+        
+        // Treasure rooms - prefer dead ends
+        int treasuresAssigned = 0;
+        foreach (RoomNode room in deadEnds)
+        {
+            if (treasuresAssigned >= treasureRooms)
+                break;
                 
-                // Create the secret room
-                List<Direction> availableDirections = GetAvailableDirections(secretConnection);
+            if (room.Type == RoomType.Normal)
+            {
+                room.Type = RoomType.Treasure;
+                treasuresAssigned++;
+            }
+        }
+        
+        // If we couldn't place all treasures in dead ends, place remaining in any available rooms
+        foreach (RoomNode room in roomsToAssign)
+        {
+            if (treasuresAssigned >= treasureRooms)
+                break;
                 
-                if (availableDirections.Count > 0)
-                {
-                    Direction secretDir = availableDirections[UnityEngine.Random.Range(0, availableDirections.Count)];
-                    Vector2Int secretPos = GetPositionInDirection(secretConnection.GridPosition, secretDir);
-                    
-                    RoomNode secretRoom = new RoomNode(secretPos, RoomType.Secret);
-                    roomNodes.Add(secretRoom);
-                    
-                    // Connect to the chosen room
-                    secretConnection.AddConnection(secretDir, secretRoom);
-                }
+            if (room.Type == RoomType.Normal)
+            {
+                room.Type = RoomType.Treasure;
+                treasuresAssigned++;
+            }
+        }
+        
+        // Remaining rooms are normal rooms
+        
+        // Try to add a secret room if chance allows
+        if (UnityEngine.Random.value < secretRoomChance)
+        {
+            // Find a suitable location for a secret room
+            // In a real implementation, you might want to find a wall between two rooms
+            // and place the secret room adjacent to it
+            
+            // For now, just pick a normal room and change it to secret
+            List<RoomNode> normalRoomList = roomNodes.FindAll(room => room.Type == RoomType.Normal);
+            if (normalRoomList.Count > 0)
+            {
+                int secretIndex = UnityEngine.Random.Range(0, normalRoomList.Count);
+                normalRoomList[secretIndex].Type = RoomType.Secret;
             }
         }
     }
@@ -601,5 +643,19 @@ public class DungeonGenerator : MonoBehaviour
         }
         
         return directions;
+    }
+
+    /// <summary>
+    /// Shuffle a list using Fisher-Yates algorithm
+    /// </summary>
+    private void ShuffleList<T>(List<T> list)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            int j = UnityEngine.Random.Range(i, list.Count);
+            T temp = list[i];
+            list[i] = list[j];
+            list[j] = temp;
+        }
     }
 } 

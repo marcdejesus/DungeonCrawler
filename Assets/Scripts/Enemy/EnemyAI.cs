@@ -18,7 +18,7 @@ public class EnemyAI : MonoBehaviour
     
     [Header("Movement Settings")]
     [Tooltip("Enemy movement speed")]
-    [SerializeField] private float moveSpeed = 2.5f;
+    [SerializeField] public float moveSpeed = 2.5f;
     
     [Tooltip("Radius of wandering circle")]
     [SerializeField] private float wanderRadius = 3f;
@@ -28,7 +28,7 @@ public class EnemyAI : MonoBehaviour
     
     [Header("Attack Settings")]
     [Tooltip("Damage dealt by attack")]
-    [SerializeField] private int attackDamage = 1;
+    [SerializeField] public int attackDamage = 1;
     
     [Tooltip("Cooldown between attacks")]
     [SerializeField] private float attackCooldown = 1f;

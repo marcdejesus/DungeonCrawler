@@ -71,6 +71,24 @@ public class BossEnemy : MonoBehaviour
         // Cache animation parameter hashes
         specialAttackHash = Animator.StringToHash("SpecialAttack");
         phaseTransitionHash = Animator.StringToHash("PhaseTransition");
+        
+        // Validate number of phase change thresholds
+        if (phaseChangeThresholds.Count != totalPhases - 1)
+        {
+            Debug.LogWarning($"BossEnemy: Number of phase thresholds ({phaseChangeThresholds.Count}) doesn't match totalPhases-1 ({totalPhases-1}). Adjusting...");
+            
+            // Adjust thresholds if needed
+            while (phaseChangeThresholds.Count < totalPhases - 1)
+            {
+                float newThreshold = 1.0f - (phaseChangeThresholds.Count + 1) * (1.0f / totalPhases);
+                phaseChangeThresholds.Add(Mathf.Clamp01(newThreshold));
+            }
+            
+            if (phaseChangeThresholds.Count > totalPhases - 1)
+            {
+                phaseChangeThresholds.RemoveRange(totalPhases - 1, phaseChangeThresholds.Count - (totalPhases - 1));
+            }
+        }
     }
 
     private void Start()
@@ -264,10 +282,10 @@ public class BossEnemy : MonoBehaviour
         animator.SetTrigger(specialAttackHash);
         
         // Show warning
-        ShowWarningEffect(1.5f);
+        ShowWarningEffect(specialAttackDuration);
         
         // Wait for animation/warning
-        yield return new WaitForSeconds(1.5f);
+        yield return new WaitForSeconds(specialAttackDuration);
         
         // Show attack effect
         if (specialAttackEffect != null)

@@ -332,7 +332,7 @@ public class GameManager : MonoBehaviour
     /// Set the game state
     /// </summary>
     /// <param name="newState">New game state</param>
-    private void SetGameState(GameState newState)
+    public void SetGameState(GameState newState)
     {
         currentState = newState;
         

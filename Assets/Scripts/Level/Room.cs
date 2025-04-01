@@ -78,6 +78,7 @@ public class Room : MonoBehaviour
     public RoomType RoomType => roomType;
     public bool IsActive => isActive;
     public bool IsCleared => isCleared;
+    public bool DoorsLocked => doorsLocked;
     public Transform NorthConnection => northConnection;
     public Transform EastConnection => eastConnection;
     public Transform SouthConnection => southConnection;
@@ -153,9 +154,14 @@ public class Room : MonoBehaviour
         }
         
         // If room isn't cleared and has enemies, lock doors
-        if (!isCleared && enemies.Count > 0)
+        if (!isCleared && enemies.Count > 0 && !doorsLocked)
         {
             LockDoors();
+        }
+        else if (isCleared && doorsLocked)
+        {
+            // Make sure doors are unlocked if room is already cleared
+            UnlockDoors();
         }
         
         // Notify listeners
